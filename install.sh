@@ -49,23 +49,33 @@ echo "[INFO] Install dependencies"
 sleep 2
 apt install -y unzip make cmake jq git build-essential vnstat
 
-# Get details
-installIP=$(wget -qO- ipv4.icanhazip.com)
-netInt=$(ip link | awk -F: '$0 !~ "lo|vir|wl|^[^0-9]"{print $2;getline}' | head -n 1 | awk '{print $1}')
-clear
-echo -e "\e[4mOrganization Info\e[0m"
-read -p "Organization : " installOrg
-read -p "Organization unit : " installOrgUnit
-read -p "Country Code: " installCountry
-read -p "Province : " installProvince
-read -p "City : " installCity
-echo ""
-echo -e "\e[4mDNS Provider Info\e[0m"
-echo "1 - Cloud Flare"
-echo "2 - Digital Ocean"
-until [ "$dnsChoice" = "1" ] || [ "$dnsChoice" = "2" ]; do
-    read -p "Choose between 1 or 2: " dnsChoice
-done
+### Add domain
+function add_domain() {
+    echo "`cat /etc/banner`"
+    read -rp "Input Your Domain For This Server :" -e SUB_DOMAIN
+    echo "Host : $SUB_DOMAIN"
+    echo $SUB_DOMAIN > /root/domain
+    cp /root/domain /etc/xray/domain
+}
+
+### Install SSL
+function pasang_ssl() {
+    print_install "Installing SSL on the domain"
+    domain=$(cat /root/domain)
+    STOPWEBSERVER=$(lsof -i:80 | cut -d' ' -f1 | awk 'NR==2 {print $1}')
+    rm -rf /root/.acme.sh
+    mkdir /root/.acme.sh
+    systemctl stop $STOPWEBSERVER
+    systemctl stop nginx
+    curl https://raw.githubusercontent.com/NevermoreSSH/VVV/main/acme.sh -o /root/.acme.sh/acme.sh
+    chmod +x /root/.acme.sh/acme.sh
+    /root/.acme.sh/acme.sh --upgrade --auto-upgrade
+    /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
+    /root/.acme.sh/acme.sh --issue -d $domain --standalone -k ec-256
+    ~/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /etc/xray/xray.crt --keypath /etc/xray/xray.key --ecc
+    chmod 777 /etc/xray/xray.key
+    print_success "SSL Certificate"
+}
 
 echo ""
 echo "[INFO] Starting installation ..."
