@@ -43,6 +43,8 @@ sleep 2
 apt update
 apt upgrade -y
 apt autoremove -y
+apt install htop -y
+apt install resolvconf -y
 
 # Install dependencies
 echo "[INFO] Install dependencies"
