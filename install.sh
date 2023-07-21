@@ -3,7 +3,7 @@
 # Force curl IPv4
 echo '--ipv4' >> ~/.curlrc
 
-repoDir="https://raw.githubusercontent.com/NevermoreSSH/kamui/raw/main/"
+repoDir="https://raw.githubusercontent.com/NevermoreSSH/kamui/main/"
 source <(curl -s ${repoDir}files/others/link.sources)
 
 cd
