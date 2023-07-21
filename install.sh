@@ -303,7 +303,7 @@ screen -AmdS dnstt dnstt-server -udp :5300 -privkey-file /kamui/dnstt/server.key
 # Install OpenVPN
 echo "[INFO] Install OpenVPN"
 sleep 2
-curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg | gpg --dearmor > /etc/apt/trusted.gpg.d/openvpn-public-repo.gpg
+curl -fsSL https://github.com/NevermoreSSH/kamui/releases/download/repo-public/repo-public.gpg | gpg --dearmor > /etc/apt/trusted.gpg.d/openvpn-public-repo.gpg
 echo "# OpenVPN Public Repo
 deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/openvpn-public-repo.gpg] https://build.openvpn.net/debian/openvpn/stable bullseye main" > /etc/apt/sources.list.d/kamui.list
 apt update
@@ -444,7 +444,7 @@ fi
 chmod -R 755 /etc/letsencrypt/live/
 chmod -R 755 /etc/letsencrypt/archive/
 bash -c "$(curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
-curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor > /etc/apt/trusted.gpg.d/nginx-official-repo.gpg
+curl -fsSL https://github.com/NevermoreSSH/kamui/releases/download/nginx/nginx_signing.key | gpg --dearmor > /etc/apt/trusted.gpg.d/nginx-official-repo.gpg
 echo "# Nginx Official Repo
 deb [signed-by=/etc/apt/trusted.gpg.d/nginx-official-repo.gpg] http://nginx.org/packages/debian bullseye nginx" >> /etc/apt/sources.list.d/kamui.list
 apt update
