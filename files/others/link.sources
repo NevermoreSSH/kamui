@@ -1,3 +1,3 @@
-linkGo="https://go.dev/dl/go1.20.5.linux-amd64.tar.gz" # Source: https://go.dev/dl/
-linkEasyRSA="https://github.com/OpenVPN/easy-rsa/releases/download/v3.1.5/EasyRSA-3.1.5.tgz" # Source: https://github.com/OpenVPN/easy-rsa/releases
+linkGo="https://github.com/NevermoreSSH/kamui/releases/download/go1.20.5/go1.20.5.linux-amd64.tar.gz" # Source: https://go.dev/dl/
+linkEasyRSA="https://github.com/NevermoreSSH/kamui/releases/download/EasyRSA-3.1.5/EasyRSA-3.1.5.tgz" # Source: https://github.com/OpenVPN/easy-rsa/releases
 linkStunnel="https://github.com/NevermoreSSH/kamui/releases/download/stunnel-5.70/stunnel-5.70.tar.gz.asc" # Source: https://www.stunnel.org/downloads.html
