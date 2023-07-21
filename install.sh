@@ -17,16 +17,6 @@ if [[ $EUID -ne 0 ]]; then
 	exit 1
 fi
 
-# Check OS
-source '/etc/os-release'
-if [[ "${ID}" != "debian" && "${VERSION_ID}" != "11" ]]; then
-	echo -e "\nThis script is only for Debian 11.\n"
-	read -n 1 -r -s -p $"Press any key to continue ... "
-	rm -f install.sh
-	cat /dev/null > ~/.bash_history
-	exit 1
-fi
-
 # Check virtualization
 virt=$(systemd-detect-virt)
 if [[ $virt != "kvm" && $virt != "xen" && $virt != "hyperv" && $virt != "microsoft" ]]; then
