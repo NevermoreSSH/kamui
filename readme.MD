@@ -6,7 +6,7 @@
 |||990|OpenVPN|
 |3|OpenVPN|1194|UDP|
 |||194|TCP|
-|4|dnstt|53|UDP|
+|4|SlowDNS|53|UDP|
 |5|WireGuard|51820|-|
 |6|Squid Proxy|8080|-|
 |7|Open HTTP Puncher|3128|Dropbear|
