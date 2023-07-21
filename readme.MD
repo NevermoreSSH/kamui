@@ -44,7 +44,7 @@
 	```
 2. Run installation.
 	```bash
-	wget -O install.sh "https://raw.githubusercontent.com/NevermoreSSH/kamui/raw/main/install.sh" && chmod +x install.sh && screen ./install.sh
+	wget -O install.sh "https://raw.githubusercontent.com/NevermoreSSH/kamui/main/install.sh" && chmod +x install.sh && screen ./install.sh
 	```
 3. VPS will automatically reboot upon completion.
 
