@@ -49,33 +49,170 @@ echo "[INFO] Install dependencies"
 sleep 2
 apt install -y unzip make cmake jq git build-essential vnstat
 
-### Add domain
-function add_domain() {
-    echo "`cat /etc/banner`"
-    read -rp "Input Your Domain For This Server :" -e SUB_DOMAIN
-    echo "Host : $SUB_DOMAIN"
-    echo $SUB_DOMAIN > /root/domain
-    cp /root/domain /etc/xray/domain
-}
-
-### Install SSL
-function pasang_ssl() {
-    print_install "Installing SSL on the domain"
-    domain=$(cat /root/domain)
-    STOPWEBSERVER=$(lsof -i:80 | cut -d' ' -f1 | awk 'NR==2 {print $1}')
-    rm -rf /root/.acme.sh
-    mkdir /root/.acme.sh
-    systemctl stop $STOPWEBSERVER
-    systemctl stop nginx
-    curl https://raw.githubusercontent.com/NevermoreSSH/VVV/main/acme.sh -o /root/.acme.sh/acme.sh
-    chmod +x /root/.acme.sh/acme.sh
-    /root/.acme.sh/acme.sh --upgrade --auto-upgrade
-    /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
-    /root/.acme.sh/acme.sh --issue -d $domain --standalone -k ec-256
-    ~/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /etc/xray/xray.crt --keypath /etc/xray/xray.key --ecc
-    chmod 777 /etc/xray/xray.key
-    print_success "SSL Certificate"
-}
+# Get details
+installIP=$(wget -qO- ipv4.icanhazip.com)
+netInt=$(ip link | awk -F: '$0 !~ "lo|vir|wl|^[^0-9]"{print $2;getline}' | head -n 1 | awk '{print $1}')
+clear
+echo -e "\e[4mOrganization Info\e[0m"
+read -p "Organization : " installOrg
+read -p "Organization unit : " installOrgUnit
+read -p "Country Code: " installCountry
+read -p "Province : " installProvince
+read -p "City : " installCity
+echo ""
+echo -e "\e[4mDNS Provider Info\e[0m"
+echo "1 - Cloud Flare"
+echo "2 - Digital Ocean"
+until [ "$dnsChoice" = "1" ] || [ "$dnsChoice" = "2" ]; do
+    read -p "Choose between 1 or 2: " dnsChoice
+done
+echo ""
+if [ "$dnsChoice" = "1" ]; then
+    installDNS="cf"
+else
+    installDNS="do"
+fi
+if [ "$installDNS" = "cf" ]; then
+    read -p "CloudFlare API Token : " installCFToken
+	if [[ $(curl -s -o /dev/null -w "%{http_code}" -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" -H "Authorization: Bearer $installCFToken") != "200" ]]; then
+		echo "[ERROR] CLoudFlare token is not valid."
+		read -n 1 -r -s -p $"Press any key to continue ... "
+		exit 1
+	fi
+	domainList=($(curl -sX GET "https://api.cloudflare.com/client/v4/zones" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" | jq -r '.result[].name'))
+	if [[ -z "$domainList" ]]; then
+	echo "[ERROR] No domains found on Cloudflare."
+	read -n 1 -r -s -p $"Press any key to continue ... "
+	exit 1
+	fi
+	n=0
+	echo ""
+	for i in "${!domainList[@]}"; do
+	echo "$((i+1)) - ${domainList[$i]}"
+	done
+	until [[ "$domainChoice" =~ ^[0-9]+$ && $domainChoice -ge 1 && $domainChoice -le ${#domainList[@]} ]]; do
+		read -p "Choose your domain : " domainChoice
+	done
+	installDomain="${domainList[$((domainChoice-1))]}"
+	read -p "Create a subdomain ( ??.${installDomain} ) : " sub
+	installSubDomain="${sub}.${installDomain}"
+	installEmail=$(curl -sX GET "https://api.cloudflare.com/client/v4/user" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" | jq -r '.result.email')
+	if [[ $installEmail == "null" ]]; then
+		echo ""
+		read -p "Email : " installEmail
+	fi
+	zoneID=$(curl -sX GET "https://api.cloudflare.com/client/v4/zones?name=$installDomain" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" | jq -r '.result[0].id')
+	echo ""
+	id1=$(curl -sX GET "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records?type=A&name=$installSubDomain" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" | jq -r '.result[] | .id')
+	id2=$(curl -sX GET "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records?type=A&name=*.$installSubDomain" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" | jq -r '.result[] | .id')
+	id3=$(curl -sX GET "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records?type=NS&name=ns-$installSubDomain" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" | jq -r '.result[] | .id')
+	if [[ -n "$id1" ]]; then
+		echo "$installSubDomain exist. Updating ..."
+		sleep 2
+		for id in $id1; do
+			curl -o /dev/null -sX DELETE "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records/$id" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json"
+		done
+		curl -o /dev/null -sX POST "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" --data "{\"type\":\"A\",\"name\":\"$installSubDomain\",\"content\":\"$installIP\",\"ttl\":1}"
+	else
+		echo "$installSubDomain not exist. Creating ..."
+		sleep 2
+		curl -o /dev/null -sX POST "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" --data "{\"type\":\"A\",\"name\":\"$installSubDomain\",\"content\":\"$installIP\",\"ttl\":1}"
+	fi
+	if [[ -n "$id2" ]]; then
+		echo "*.$installSubDomain exist. Updating ..."
+		sleep 2
+		for id in $id2; do
+			curl -o /dev/null -sX DELETE "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records/$id" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json"
+		done
+		curl -o /dev/null -sX POST "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" --data "{\"type\":\"A\",\"name\":\"*.$installSubDomain\",\"content\":\"$installIP\",\"ttl\":1}"
+	else
+		echo "*.$installSubDomain not exist. Creating ..."
+		sleep 2
+		curl -o /dev/null -sX POST "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" --data "{\"type\":\"A\",\"name\":\"*.$installSubDomain\",\"content\":\"$installIP\",\"ttl\":1}"
+	fi
+	if [[ -n "$id3" ]]; then
+		echo "ns-$installSubDomain exist. Updating ..."
+		sleep 2
+		for id in $id3; do
+			curl -o /dev/null -sX DELETE "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records/$id" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json"
+		done
+		curl -o /dev/null -sX POST "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" --data "{\"type\":\"NS\",\"name\":\"ns-$installSubDomain\",\"content\":\"$installSubDomain\",\"ttl\":1}"
+	else
+		echo "ns-$installSubDomain not exist. Creating ..."
+		sleep 2
+		curl -o /dev/null -sX POST "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records" -H "Authorization: Bearer $installCFToken" -H "Content-Type:application/json" --data "{\"type\":\"NS\",\"name\":\"ns-$installSubDomain\",\"content\":\"$installSubDomain\",\"ttl\":1}"
+	fi
+else
+    read -p "DigitalOcean API Token : " installDOToken
+	if [[ $(curl -s -o /dev/null -w "%{http_code}" -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" "https://api.digitalocean.com/v2/account") != "200" ]]; then
+		echo "[ERROR] DigitalOcean token is not valid."
+		read -n 1 -r -s -p $"Press any key to continue ... "
+		exit 1
+	fi
+	domainList=($(curl -sX GET -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" "https://api.digitalocean.com/v2/domains" | jq -r '.domains[].name'))
+	if [[ -z "$domainList" ]]; then
+	echo "[ERROR] No domains found on DigitalOcean."
+	read -n 1 -r -s -p $"Press any key to continue ... "
+	exit 1
+	fi
+	n=0
+	echo ""
+	for i in "${!domainList[@]}"; do
+	echo "$((i+1)) - ${domainList[$i]}"
+	done
+	until [[ "$domainChoice" =~ ^[0-9]+$ && $domainChoice -ge 1 && $domainChoice -le ${#domainList[@]} ]]; do
+		read -p "Choose your domain : " domainChoice
+	done
+	installDomain="${domainList[$((domainChoice-1))]}"
+	read -p "Create a subdomain ( ??.${installDomain} ) : " sub
+	installSubDomain="${sub}.${installDomain}"
+	installEmail=$(curl -s -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" "https://api.digitalocean.com/v2/account" | jq -r '.account.email')
+	if [[ -z "$installEmail" ]]; then
+		echo ""
+		read -p "Email : " installEmail
+		echo ""
+	fi
+	id1=$(curl -s -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" "https://api.digitalocean.com/v2/domains/$installDomain/records" | jq -r ".domain_records[] | select(.name == \"$sub\" and .type == \"A\") | .id")
+	id2=$(curl -s -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" "https://api.digitalocean.com/v2/domains/$installDomain/records" | jq -r ".domain_records[] | select(.name == \"*.$sub\" and .type == \"A\") | .id")
+	id3=$(curl -s -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" "https://api.digitalocean.com/v2/domains/$installDomain/records" | jq -r ".domain_records[] | select(.name == \"ns-$sub\" and .type == \"NS\") | .id")
+	echo ""
+	if [[ -n "$id1" ]]; then
+		echo "$installSubDomain exist. Updating ..."
+		sleep 2
+		for id in $id1; do
+			curl -o /dev/null -sX DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" "https://api.digitalocean.com/v2/domains/$installDomain/records/$id"
+		done
+		curl -o /dev/null -sX POST -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" -d "{\"type\":\"A\",\"name\":\"$sub\",\"data\":\"$installIP\"}" "https://api.digitalocean.com/v2/domains/$installDomain/records"
+	else
+		echo "$installSubDomain not exist. Creating ..."
+		sleep 2
+		curl -o /dev/null -sX POST -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" -d "{\"type\":\"A\",\"name\":\"$sub\",\"data\":\"$installIP\"}" "https://api.digitalocean.com/v2/domains/$installDomain/records"
+	fi
+	if [[ -n "$id2" ]]; then
+		echo "*.$installSubDomain exist. Updating ..."
+		sleep 2
+		for id in $id2; do
+			curl -o /dev/null -sX DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" "https://api.digitalocean.com/v2/domains/$installDomain/records/$id"
+		done
+		curl -o /dev/null -sX POST -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" -d "{\"type\":\"A\",\"name\":\"*.$sub\",\"data\":\"$installIP\"}" "https://api.digitalocean.com/v2/domains/$installDomain/records"
+	else
+		echo "*.$installSubDomain not exist. Creating ..."
+		sleep 2
+		curl -o /dev/null -sX POST -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" -d "{\"type\":\"A\",\"name\":\"*.$sub\",\"data\":\"$installIP\"}" "https://api.digitalocean.com/v2/domains/$installDomain/records"
+	fi
+	if [[ -n "$id3" ]]; then
+		echo "ns-$installSubDomain exist. Updating ..."
+		sleep 2
+		for id in $id3; do
+			curl -o /dev/null -sX DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" "https://api.digitalocean.com/v2/domains/$installDomain/records/$id"
+		done
+		curl -o /dev/null -sX POST -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" -d "{\"type\":\"NS\",\"name\":\"ns-$sub\",\"data\":\"$installSubDomain.\"}" "https://api.digitalocean.com/v2/domains/$installDomain/records"
+	else
+		echo "ns-$installSubDomain not exist. Creating ..."
+		sleep 2
+		curl -o /dev/null -sX POST -H "Content-Type: application/json" -H "Authorization: Bearer $installDOToken" -d "{\"type\":\"NS\",\"name\":\"ns-$sub\",\"data\":\"$installSubDomain.\"}" "https://api.digitalocean.com/v2/domains/$installDomain/records"
+	fi
+fi
 
 echo ""
 echo "[INFO] Starting installation ..."
@@ -299,6 +436,19 @@ snap refresh core
 snap install --classic certbot
 ln -s /snap/bin/certbot /usr/bin/certbot
 snap set certbot trust-plugin-with-root=ok
+if [ "$installDNS" = "cf" ]; then
+    snap install certbot-dns-cloudflare
+	echo "# Cloudflare API token used by Certbot
+	dns_cloudflare_api_token =  ${installCFToken}" > /kamui/xray/cloudflare.ini
+	chmod 600 /kamui/xray/cloudflare.ini
+	certbot certonly --dns-cloudflare --dns-cloudflare-credentials /kamui/xray/cloudflare.ini --dns-cloudflare-propagation-seconds 30 --noninteractive --agree-tos -d $installSubDomain -d *.$installSubDomain --register-unsafely-without-email
+else
+    snap install certbot-dns-digitalocean
+	echo "# DigitalOcean API token used by Certbot
+	dns_digitalocean_token = ${installDOToken}" > /kamui/xray/digitalocean.ini
+	chmod 600 /kamui/xray/digitalocean.ini
+	certbot certonly --dns-digitalocean --dns-digitalocean-credentials /kamui/xray/digitalocean.ini --dns-digitalocean-propagation-seconds 30 --noninteractive --agree-tos -d $installSubDomain -d *.$installSubDomain --register-unsafely-without-email
+fi
 chmod -R 755 /etc/letsencrypt/live/
 chmod -R 755 /etc/letsencrypt/archive/
 bash -c "$(curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
