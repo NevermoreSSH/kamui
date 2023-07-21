@@ -1,6 +1,4 @@
 # Project KAMUI V1
-VPN services installer. For Debian 11. Created by Iriszz.
-
 ## Installed Services
 |No.|Service|Port|Note|
 |---|---|---|---|
