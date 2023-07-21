@@ -49,17 +49,12 @@
 3. VPS will automatically reboot upon completion.
 
 ## Current Progress
-1. ~~Install basic SSH & VPN services (Dropbear, Stunnel, BadVPN UDPgW, Squid Proxy, Python Proxy, Open HTTP Puncher (OHP), OpenVPN, WireGuard)~~
-2. ~~Install / Configure 'Other Services' part~~
-3. ~~Use DigitalOcean api token to manage domain~~
-4. ~~Install dnstt~~
-5. ~~Install Xray Core, 3 protocol (vless, vmess & trojan) at single port 443/80~~
-6. ~~Xray WebSocket support custom path~~
-7. ~~Menu script~~
-8. Beautify script
+1. Install basic SSH & VPN services (Dropbear, Stunnel, BadVPN UDPgW, Squid Proxy, Python Proxy, Open HTTP Puncher (OHP), OpenVPN, WireGuard)
+2. Install / Configure 'Other Services' part
+3. Install SlowDNS
+4. Install Xray Core, 3 protocol (vless, vmess & trojan) at single port 443/80
+5. Xray WebSocket support custom path
 
 ## Known Bug
 1. You tell me. Kindly contact me via Telegram.
 
-## Contact
-Telegram: [@iriszz](https://t.me/iriszz)
