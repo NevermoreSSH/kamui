@@ -32,10 +32,6 @@
 
 ## Requirements
 - Clean VPS, Debian 11 with KVM, Xen or Hyper-V virtualization
-- ~~Able to login as root~~
-- Domain hosted on DigitalOcean or CloudFlare
-- [DigitalOcean API Token](https://cloud.digitalocean.com/settings/api/tokens)
-- [CLoudflare API Token](https://dash.cloudflare.com/profile/api-tokens) (Edit zone DNS)
 
 ## Installation
 1. Update packages and reboot.
