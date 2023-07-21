@@ -1,4 +1,3 @@
-# Project KAMUI V1
 ## Installed Services
 |No.|Service|Port|Note|
 |---|---|---|---|
